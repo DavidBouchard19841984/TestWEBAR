@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Test WebAR - Mains</title>
+  <style>
+    body { margin: 0; overflow: hidden; }
+    canvas { position: absolute; top: 0; left: 0; }
+    .button {
+      position: absolute;
+      width: 150px;
+      height: 80px;
+      font-size: 24px;
+      background-color: #2196F3;
+      color: white;
+      border-radius: 12px;
+      border: none;
+      text-align: center;
+      line-height: 80px;
+    }
+    #btnHello { top: 20%; left: 20%; }
+    #btnBye { top: 20%; right: 20%; }
+  </style>
+</head>
+<body>
+  <div id="btnHello" class="button">Bonjour</div>
+  <div id="btnBye" class="button">Au Revoir</div>
+  <video id="video" autoplay playsinline style="display: none;"></video>
+  <canvas id="output"></canvas>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
