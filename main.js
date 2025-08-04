@@ -11,13 +11,15 @@ window.addEventListener('load', () => {
   });
 
   function startExperience() {
-    // Le reste de votre code est placé ici
-    const btnHello = document.querySelector('#btnHello');
-    const btnBye = document.querySelector('#btnBye');
-
-    // Crée un Raycaster pour détecter les collisions main → objet
+    // ▼▼▼ CORRECTION ▼▼▼
+    // On déplace les déclarations qui dépendent de THREE ici,
+    // pour être sûr qu'il est chargé.
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
+    // ▲▲▲ FIN DE LA CORRECTION ▲▲▲
+
+    const btnHello = document.querySelector('#btnHello');
+    const btnBye = document.querySelector('#btnBye');
 
     // Initialise MediaPipe Hands
     const hands = new Hands({
@@ -97,5 +99,3 @@ window.addEventListener('load', () => {
     });
   }
 });
-
-// Le `}` final de votre code original a été retiré car il semblait être une erreur de syntaxe.
