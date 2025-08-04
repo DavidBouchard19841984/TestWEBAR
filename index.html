@@ -2,10 +2,26 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Test WebAR - Mains</title>
   <style>
-    body { margin: 0; overflow: hidden; }
-    canvas { position: absolute; top: 0; left: 0; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      height: 100%;
+      width: 100%;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+
     .button {
       position: absolute;
       width: 150px;
@@ -17,9 +33,11 @@
       border: none;
       text-align: center;
       line-height: 80px;
+      z-index: 2;
     }
+
     #btnHello { top: 20%; left: 20%; }
-    #btnBye { top: 20%; right: 20%; }
+    #btnBye   { top: 20%; right: 20%; }
   </style>
 </head>
 <body>
