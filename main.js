@@ -1,25 +1,15 @@
-// Récupère la vidéo créée automatiquement par AR.js
-const videoElement = document.querySelector('video');
-
-// Récupère les entités 3D
+// Récupère les entités A-Frame
 const scene = document.querySelector('a-scene');
 const btnHello = document.querySelector('#btnHello');
 const btnBye = document.querySelector('#btnBye');
 
-// Crée un raycaster Three.js
+// Crée un Raycaster pour détecter les collisions main → objet
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// Récupère la caméra A-Frame
-let camera3D = null;
-scene.addEventListener('loaded', () => {
-  camera3D = scene.camera;
-});
-
-// Initialise MediaPipe
+// Initialise MediaPipe Hands
 const hands = new Hands({
-  locateFile: (file) =>
-    `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
+  locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
 });
 
 hands.setOptions({
@@ -29,60 +19,58 @@ hands.setOptions({
   minTrackingConfidence: 0.5
 });
 
-// Lance MediaPipe dès que la vidéo d'AR.js est prête
-videoElement.addEventListener('loadeddata', () => {
-  const camera = new Camera(videoElement, {
-    onFrame: async () => {
-      await hands.send({ image: videoElement });
-    },
-    width: 640,
-    height: 480
-  });
-  camera.start();
-});
-hands.onResults((results) => {
-  if (!camera3D) return;
-  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+// On attend que la scène soit complètement chargée
+scene.addEventListener('loaded', () => {
+  const camera3D = scene.camera;
 
-  const landmarks = results.multiHandLandmarks[0];
-  const indexTip = landmarks[8]; // landmark du bout du doigt
+  // ⚠️ Important : attendre que la <video> soit créée par AR.js
+  const videoElement = document.querySelector('video');
 
-  // Convertir les coordonnées normalisées [0-1] en coordonnées écran
-  mouse.x = (indexTip.x - 0.5) * 2;  // -1 à +1
-  mouse.y = (0.5 - indexTip.y) * 2;
-
-  // Raycast depuis la caméra
-  raycaster.setFromCamera(mouse, camera3D);
-
-  const objects = [
-    btnHello.object3D,
-    btnBye.object3D
-  ];
-
-  const intersects = raycaster.intersectObjects(objects, true);
-
-  if (intersects.length > 0) {
-    const name = intersects[0].object.el.id;
-    if (name === 'btnHello') alert("👋 Bonjour !");
-    else if (name === 'btnBye') alert("👋 Au revoir !");
+  if (!videoElement) {
+    console.error("❌ Aucune balise <video> trouvée par AR.js !");
+    return;
   }
-});
 
-// Caméra arrière (getUserMedia)
-navigator.mediaDevices.getUserMedia({
-  video: { facingMode: { ideal: "environment" } }
-}).then((stream) => {
-  videoElement.srcObject = stream;
-  videoElement.play();
-
-  const camera = new Camera(videoElement, {
-    onFrame: async () => {
-      await hands.send({ image: videoElement });
-    },
-    width: 640,
-    height: 480
+  // Démarre MediaPipe quand la vidéo est prête
+  videoElement.addEventListener('loadeddata', () => {
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await hands.send({ image: videoElement });
+      },
+      width: 640,
+      height: 480
+    });
+    camera.start();
   });
-  camera.start();
-}).catch((err) => {
-  console.error("Erreur accès caméra :", err);
+
+  // Interaction main ↔ objets
+  hands.onResults((results) => {
+    if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
+
+    const landmarks = results.multiHandLandmarks[0];
+    const indexTip = landmarks[8]; // Bout de l'index
+
+    // Convertir les coordonnées MediaPipe (0–1) en coordonnées NDC (-1 à +1)
+    mouse.x = (indexTip.x - 0.5) * 2;
+    mouse.y = (0.5 - indexTip.y) * 2;
+
+    // Raycaster depuis la caméra AR.js
+    raycaster.setFromCamera(mouse, camera3D);
+
+    const targets = [
+      btnHello.object3D,
+      btnBye.object3D
+    ];
+
+    const intersects = raycaster.intersectObjects(targets, true);
+
+    if (intersects.length > 0) {
+      const hit = intersects[0].object.el.id;
+      if (hit === 'btnHello') {
+        alert("👋 Bonjour !");
+      } else if (hit === 'btnBye') {
+        alert("👋 Au Revoir !");
+      }
+    }
+  });
 });
