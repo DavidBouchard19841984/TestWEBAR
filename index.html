@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>WebAR Moderne pour le Public</title>
+  <title>WebAR Moderne - Mode Débogage</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <script src="//cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
 </head>
 
 <body>
@@ -34,23 +37,29 @@
       const reticle = document.querySelector('#reticle');
       let objectsPlaced = false;
 
-      // Quand le réticule trouve une surface, on l'affiche
+      // ▼▼▼ CAPTURE D'ERREUR AJOUTÉE ▼▼▼
+      // On écoute l'événement 'xr-button-init-error' qui est émis
+      // par a-xr-button si quelque chose se passe mal au démarrage.
+      const arButton = document.querySelector('#my-ar-button');
+      arButton.addEventListener('xr-button-init-error', (err) => {
+        console.error("Erreur d'initialisation de WebXR détectée :", err);
+        alert("Erreur d'initialisation de WebXR. Vérifiez la console pour les détails.");
+      });
+
+      console.log("Page chargée et script initialisé. En attente du clic sur 'Enter AR'.");
+      
       reticle.addEventListener('ar-hit-test-start', () => {
-        if (!objectsPlaced) { // On n'affiche le réticule que si rien n'a été placé
+        if (!objectsPlaced) {
           reticle.object3D.visible = true;
         }
       });
 
-      // Quand le réticule ne trouve plus de surface, on le cache
       reticle.addEventListener('ar-hit-test-stop', () => {
         reticle.object3D.visible = false;
       });
 
-      // Quand on tape sur l'écran
       sceneEl.addEventListener('click', () => {
-        // Si le réticule est visible et qu'on n'a pas encore placé les objets
         if (reticle.object3D.visible && !objectsPlaced) {
-          
           const position = reticle.getAttribute('position');
 
           const btnHello = document.createElement('a-box');
