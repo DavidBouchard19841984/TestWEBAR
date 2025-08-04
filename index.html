@@ -67,7 +67,6 @@
     </div>
 
     <video id="inner-video" loop muted playsinline crossOrigin="anonymous">
-        <!-- CORRECTION : Remplacement par une vidéo 360° -->
         <source src="https://threejs.org/examples/textures/pano.webm" type="video/webm">
     </video>
 
@@ -176,7 +175,6 @@
             shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\nfloat distortion = snoise(position + uTime * uSpeed) * uStrength;\ntransformed += normalize(position) * distortion;`);
         };
 
-        // CORRECTION : Le matériau doit afficher la face intérieure de la sphère
         const innerMaterial1 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
         const innerMaterial2 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
 
@@ -200,7 +198,6 @@
         const mouse = new THREE.Vector2();
 
         function handleInteraction(event) {
-            // CORRECTION : Gestion unifiée et robuste des événements de clic et de toucher
             let x, y;
             if (event.type === 'touchend') {
                 x = event.changedTouches[0].clientX;
@@ -224,26 +221,30 @@
         
         // --- Démarrage de l'expérience ---
         function startExperience() {
+            // L'action la plus directe : on lance la vidéo immédiatement
+            const playPromise = video.play();
+
             gsap.to(overlay, { opacity: 0, duration: 1, onComplete: () => {
                 overlay.style.display = 'none';
             }});
             gsap.to(controlsIndicator, { opacity: 0.7, duration: 1, delay: 0.5 });
             
-            video.play().then(() => {
-                console.log("SUCCÈS : La vidéo a démarré ! Application de la texture.");
-                const videoTexture = new THREE.VideoTexture(video);
-                
-                innerMaterial1.color.set(0xffffff); 
-                innerMaterial1.map = videoTexture;
-                innerMaterial1.needsUpdate = true;
-                
-                innerMaterial2.color.set(0xffffff);
-                innerMaterial2.map = videoTexture;
-                innerMaterial2.needsUpdate = true;
-
-            }).catch(e => {
-                console.error("ERREUR : La lecture de la vidéo a été bloquée par le navigateur.", e);
-            });
+            if (playPromise !== undefined) {
+                playPromise.then(() => {
+                    console.log("SUCCÈS : La vidéo a démarré ! Application de la texture.");
+                    const videoTexture = new THREE.VideoTexture(video);
+                    
+                    innerMaterial1.color.set(0xffffff); 
+                    innerMaterial1.map = videoTexture;
+                    innerMaterial1.needsUpdate = true;
+                    
+                    innerMaterial2.color.set(0xffffff);
+                    innerMaterial2.map = videoTexture;
+                    innerMaterial2.needsUpdate = true;
+                }).catch(e => {
+                    console.error("ERREUR : La lecture de la vidéo a été bloquée par le navigateur.", e);
+                });
+            }
             
             animate();
             
