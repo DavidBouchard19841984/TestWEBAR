@@ -152,7 +152,7 @@
             'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/fonts/helvetiker_regular.typeface.json',
             (font) => {
                 const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.5 });
-                const titleGeometry = new TextGeometry('Spheres Deformables', {
+                const titleGeometry = new TextGeometry('Mondes', {
                     font: font, size: 0.5, height: 0.1, curveSegments: 12, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.01, bevelOffset: 0, bevelSegments: 5
                 });
                 titleGeometry.center();
@@ -176,8 +176,9 @@
             shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\nfloat distortion = snoise(position + uTime * uSpeed) * uStrength;\ntransformed += normalize(position) * distortion;`);
         };
 
-        const innerMaterial1 = new THREE.MeshBasicMaterial({ color: 0x000000 });
-        const innerMaterial2 = new THREE.MeshBasicMaterial({ color: 0x000000 });
+        // CORRECTION : Le matériau doit afficher la face intérieure de la sphère
+        const innerMaterial1 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
+        const innerMaterial2 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
 
         const outerGeometry = new THREE.SphereGeometry(2, 128, 128);
         const innerGeometry = new THREE.SphereGeometry(1.5, 128, 128);
@@ -185,13 +186,13 @@
         const group1 = new THREE.Group();
         const glassSphere1 = new THREE.Mesh(outerGeometry, glassMaterial);
         group1.add(glassSphere1, new THREE.Mesh(innerGeometry, innerMaterial1));
-        group1.position.set(-5, 4, -5);
+        group1.position.set(-3, 4, 0);
         scene.add(group1);
 
         const group2 = new THREE.Group();
         const glassSphere2 = new THREE.Mesh(outerGeometry, glassMaterial);
         group2.add(glassSphere2, new THREE.Mesh(innerGeometry, innerMaterial2));
-        group2.position.set(5, 4, -5);
+        group2.position.set(3, 4, 0);
         scene.add(group2);
 
         const clickableObjects = [glassSphere1, glassSphere2];
@@ -199,9 +200,9 @@
         const mouse = new THREE.Vector2();
 
         function handleInteraction(event) {
-            // CORRECTION : Gestion robuste des événements de clic et de toucher
+            // CORRECTION : Gestion unifiée et robuste des événements de clic et de toucher
             let x, y;
-            if (event.changedTouches) {
+            if (event.type === 'touchend') {
                 x = event.changedTouches[0].clientX;
                 y = event.changedTouches[0].clientY;
             } else {
@@ -246,8 +247,9 @@
             
             animate();
             
-            window.addEventListener('click', handleInteraction);
-            window.addEventListener('touchend', handleInteraction);
+            const canvas = renderer.domElement;
+            canvas.addEventListener('click', handleInteraction);
+            canvas.addEventListener('touchend', handleInteraction);
         }
         startButton.addEventListener('click', startExperience, { once: true });
 
