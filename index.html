@@ -2,52 +2,42 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8">
+  <title>WebAR 3D - Boutons Mains</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Test WebAR - Mains</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      overflow: hidden;
-      height: 100%;
-      width: 100%;
-    }
 
-    canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 1;
-    }
+  <!-- A-Frame + AR.js -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe@1.4.2/dist/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ar.js@3.4.2/aframe/build/aframe-ar.min.js"></script>
 
-    .button {
-      position: absolute;
-      width: 150px;
-      height: 80px;
-      font-size: 24px;
-      background-color: #2196F3;
-      color: white;
-      border-radius: 12px;
-      border: none;
-      text-align: center;
-      line-height: 80px;
-      z-index: 2;
-    }
-
-    #btnHello { top: 20%; left: 20%; }
-    #btnBye   { top: 20%; right: 20%; }
-  </style>
-</head>
-<body>
-  <div id="btnHello" class="button">Bonjour</div>
-  <div id="btnBye" class="button">Au Revoir</div>
-  <video id="video" autoplay playsinline style="display: none;"></video>
-  <canvas id="output"></canvas>
+  <!-- MediaPipe Hands -->
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
-  <script src="app.js"></script>
+
+  <!-- Script principal -->
+  <script defer src="main.js"></script>
+</head>
+
+<body style="margin: 0; overflow: hidden;">
+  <a-scene embedded arjs>
+    <!-- Bouton "Bonjour" -->
+    <a-box id="btnHello"
+           position="-0.5 0 -2"
+           depth="0.2" height="0.5" width="1"
+           color="#2196F3"
+           shadow></a-box>
+
+    <!-- Bouton "Au Revoir" -->
+    <a-box id="btnBye"
+           position="0.5 0 -2"
+           depth="0.2" height="0.5" width="1"
+           color="#f44336"
+           shadow></a-box>
+
+    <a-camera-static></a-camera-static>
+  </a-scene>
+
+  <!-- Vidéo cachée pour MediaPipe -->
+  <video id="video" style="display: none;" playsinline></video>
 </body>
 </html>
