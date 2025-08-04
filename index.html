@@ -67,7 +67,8 @@
     </div>
 
     <video id="inner-video" loop muted playsinline crossOrigin="anonymous">
-        <source src="https://threejs.org/examples/textures/pano.webm" type="video/webm">
+        <!-- CORRECTION : Retour à une source vidéo fiable -->
+        <source src="https://threejs.org/examples/textures/sintel.mp4" type="video/mp4">
     </video>
 
     <canvas id="bg-canvas"></canvas>
@@ -221,7 +222,6 @@
         
         // --- Démarrage de l'expérience ---
         function startExperience() {
-            // L'action la plus directe : on lance la vidéo immédiatement
             const playPromise = video.play();
 
             gsap.to(overlay, { opacity: 0, duration: 1, onComplete: () => {
