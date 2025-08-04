@@ -4,12 +4,13 @@
   <title>WebAR Moderne - Mode Débogage</title>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-
+  
   <script src="//cdn.jsdelivr.net/npm/eruda"></script>
   <script>eruda.init();</script>
-</head>
 
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+</head>
 <body>
   <a-scene webxr="requiredFeatures: hit-test;">
     
@@ -33,13 +34,11 @@
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      // Ce script reste identique
       const sceneEl = document.querySelector('a-scene');
       const reticle = document.querySelector('#reticle');
       let objectsPlaced = false;
 
-      // ▼▼▼ CAPTURE D'ERREUR AJOUTÉE ▼▼▼
-      // On écoute l'événement 'xr-button-init-error' qui est émis
-      // par a-xr-button si quelque chose se passe mal au démarrage.
       const arButton = document.querySelector('#my-ar-button');
       arButton.addEventListener('xr-button-init-error', (err) => {
         console.error("Erreur d'initialisation de WebXR détectée :", err);
