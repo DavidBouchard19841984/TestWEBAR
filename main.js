@@ -1,5 +1,5 @@
-// Récupère la vidéo (utilisée en source pour MediaPipe)
-const videoElement = document.getElementById('video');
+// Récupère la vidéo créée automatiquement par AR.js
+const videoElement = document.querySelector('video');
 
 // Récupère les entités 3D
 const scene = document.querySelector('a-scene');
@@ -10,13 +10,13 @@ const btnBye = document.querySelector('#btnBye');
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-// Récupère la caméra de la scène
+// Récupère la caméra A-Frame
 let camera3D = null;
 scene.addEventListener('loaded', () => {
   camera3D = scene.camera;
 });
 
-// Initialiser MediaPipe Hands
+// Initialise MediaPipe
 const hands = new Hands({
   locateFile: (file) =>
     `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
@@ -29,6 +29,17 @@ hands.setOptions({
   minTrackingConfidence: 0.5
 });
 
+// Lance MediaPipe dès que la vidéo d'AR.js est prête
+videoElement.addEventListener('loadeddata', () => {
+  const camera = new Camera(videoElement, {
+    onFrame: async () => {
+      await hands.send({ image: videoElement });
+    },
+    width: 640,
+    height: 480
+  });
+  camera.start();
+});
 hands.onResults((results) => {
   if (!camera3D) return;
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
