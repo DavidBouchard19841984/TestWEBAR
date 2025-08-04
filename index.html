@@ -1,75 +1,81 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>WebAR 3D - Boutons Mains</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <style>
-    #start-overlay {
-      position: absolute;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background-color: rgba(0, 0, 0, 0.7);
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      text-align: center;
-      z-index: 1000;
-      font-family: sans-serif;
-    }
-    #start-button {
-      background-color: #2196F3;
-      color: white;
-      padding: 15px 30px;
-      font-size: 20px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-    }
-  </style>
-
-  <script src="//cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
-
-  <script src="https://cdn.jsdelivr.net/npm/aframe@1.5.0/dist/aframe.min.js"></script>
-  
-  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
-
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.min.js"></script>
-
-  </head>
-
-<body style="margin: 0; overflow: hidden; background-color: black;">
-  <div id="start-overlay">
-    <div>
-      <h1>Expérience AR</h1>
-      <button id="start-button">Démarrer</button>
-    </div>
-  </div>
-
-  <a-scene
-    id="ar-scene"
-    embedded
-    arjs="sourceType: webcam; debugUIEnabled: false;"
-    vr-mode-ui="enabled: false"
-    renderer="antialias: true"
+  <meta charset="utf-8">
+  <title>WebAR Moderne avec WebXR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+</head>
+<body>
+  <a-scene 
+    webxr="requiredFeatures: hit-test;"
+    vr-mode-ui="enterARButton: #enter-ar-button;"
   >
-    <a-box id="btnHello"
-           position="-0.5 0.5 -2"
-           depth="0.2" height="0.5" width="1"
-           color="#2196F3"
-           shadow></a-box>
+    <a-entity
+      id="reticle"
+      ar-hit-test="target: #floor;"
+      scale="0.2 0.2 0.2"
+      visible="false"
+    >
+      <a-ring rotation="-90 0 0"></a-ring>
+    </a-entity>
+    
+    <a-plane id="floor" position="0 0 0" rotation="-90 0 0" width="10" height="10" visible="false"></a-plane>
 
-    <a-box id="btnBye"
-           position="0.5 0.5 -2"
-           depth="0.2" height="0.5" width="1"
-           color="#f44336"
-           shadow></a-box>
   </a-scene>
 
+  <button id="enter-ar-button" style="position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 20px; font-size: 18px; border-radius: 5px; border: none; background: #2196F3; color: white; z-index: 1000;">
+    Enter AR
+  </button>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const sceneEl = document.querySelector('a-scene');
+      const reticle = document.querySelector('#reticle');
+      let objectsPlaced = false; // Pour s'assurer qu'on ne place les objets qu'une seule fois
+
+      // Quand le réticule trouve une surface, on l'affiche
+      reticle.addEventListener('ar-hit-test-start', () => {
+        reticle.object3D.visible = true;
+      });
+
+      // Quand le réticule ne trouve plus de surface, on le cache
+      reticle.addEventListener('ar-hit-test-stop', () => {
+        reticle.object3D.visible = false;
+      });
+
+      // Quand on tape sur l'écran
+      sceneEl.addEventListener('click', () => {
+        // Si le réticule est visible et qu'on n'a pas encore placé les objets
+        if (reticle.object3D.visible && !objectsPlaced) {
+          
+          // On récupère la position du réticule
+          const position = reticle.getAttribute('position');
+
+          // Crée le bouton "Bonjour"
+          const btnHello = document.createElement('a-box');
+          btnHello.setAttribute('position', `${position.x - 0.5} ${position.y} ${position.z}`);
+          btnHello.setAttribute('color', '#2196F3');
+          btnHello.setAttribute('depth', '0.2');
+          btnHello.setAttribute('height', '0.5');
+          btnHello.setAttribute('width', '1');
+          sceneEl.appendChild(btnHello);
+
+          // Crée le bouton "Au Revoir"
+          const btnBye = document.createElement('a-box');
+          btnBye.setAttribute('position', `${position.x + 0.5} ${position.y} ${position.z}`);
+          btnBye.setAttribute('color', '#f44336');
+          btnBye.setAttribute('depth', '0.2');
+          btnBye.setAttribute('height', '0.5');
+          btnBye.setAttribute('width', '1');
+          sceneEl.appendChild(btnBye);
+
+          objectsPlaced = true;
+          // On cache le réticule une fois les objets placés
+          reticle.object3D.visible = false;
+        }
+      });
+    });
+  </script>
 </body>
-<script src="main.js"></script>
 </html>
