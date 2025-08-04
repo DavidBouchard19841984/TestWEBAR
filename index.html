@@ -67,7 +67,8 @@
     </div>
 
     <video id="inner-video" loop muted playsinline crossOrigin="anonymous">
-        <source src="https://threejs.org/examples/textures/sintel.mp4" type="video/mp4">
+        <!-- CORRECTION : Remplacement par une vidéo 360° -->
+        <source src="https://threejs.org/examples/textures/pano.webm" type="video/webm">
     </video>
 
     <canvas id="bg-canvas"></canvas>
@@ -164,7 +165,7 @@
         // --- Sphères Déformables ---
         const distortionUniforms = { uTime: { value: 0 }, uSpeed: { value: 0.2 }, uStrength: { value: 0.1 } };
         const glassMaterial = new THREE.MeshPhysicalMaterial({
-            metalness: 0, roughness: 0.1, transmission: 1.0, thickness: 5, ior: 5, transparent: true
+            metalness: 0, roughness: 0.1, transmission: 1.0, thickness: 2.0, ior: 1.5, transparent: true
         });
 
         glassMaterial.onBeforeCompile = (shader) => {
@@ -198,9 +199,15 @@
         const mouse = new THREE.Vector2();
 
         function handleInteraction(event) {
-            // On utilise les coordonnées du premier point de contact pour le tactile
-            const x = event.touches ? event.touches[0].clientX : event.clientX;
-            const y = event.touches ? event.touches[0].clientY : event.clientY;
+            // CORRECTION : Gestion robuste des événements de clic et de toucher
+            let x, y;
+            if (event.changedTouches) {
+                x = event.changedTouches[0].clientX;
+                y = event.changedTouches[0].clientY;
+            } else {
+                x = event.clientX;
+                y = event.clientY;
+            }
 
             mouse.x = (x / window.innerWidth) * 2 - 1;
             mouse.y = - (y / window.innerHeight) * 2 + 1;
