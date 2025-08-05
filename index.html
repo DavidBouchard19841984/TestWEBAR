@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Site 3D avec Sphères Lumineuses</title>
+    <title>Site 3D avec Lueur Fresnel et Bloom</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.4/gsap.min.js"></script>
     <style>
         body {
@@ -58,6 +58,15 @@
         .video-source {
             display: none;
         }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 101; /* Au-dessus de l'overlay */
+            display: flex;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -90,7 +99,7 @@
         import * as THREE from 'three';
         import { FontLoader } from 'three/addons/loaders/FontLoader.js';
         import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
-        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js'; 
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -102,18 +111,30 @@
         const controlsIndicator = document.querySelector('.controls-indicator');
         const video1 = document.getElementById('inner-video-1');
         const video2 = document.getElementById('inner-video-2');
+ 
+        // --- Variables Globales ---
+        const clock = new THREE.Clock(); 
+        let backgroundTexture; // Pour stocker la texture NightSky.png
+        let BackgroundTexturedSphere; // La grande sphère texturée qui deviendra scintillante
+        let twinkleShaderMaterial; // Le matériau shader pour le scintillement
+
+        // Nouvelles variables pour les textures de bruit
+        let noiseTexture1;
+        let noiseTexture2;
 
         // --- Gestionnaire de Chargement ---
         const loadingManager = new THREE.LoadingManager(
             () => {
                 loadingText.style.display = 'none';
                 startButton.style.display = 'block';
+                console.log("LoadingManager: Tous les éléments sont chargés, bouton de démarrage affiché.");
             },
             (itemUrl, itemsLoaded, itemsTotal) => {
                 loadingText.textContent = `Chargement ${Math.round((itemsLoaded / itemsTotal) * 100)}%`;
+                console.log(`LoadingManager: ${itemsLoaded}/${itemsTotal} chargés (${itemUrl})`);
             },
             (url) => {
-                console.error('Erreur de chargement pour :', url);
+                console.error('LoadingManager: Erreur lors du chargement pour :', url);
                 loadingText.textContent = "Erreur de chargement. Veuillez rafraîchir la page.";
             }
         );
@@ -122,54 +143,182 @@
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
         camera.position.set(0, 2, 8);
+        console.log("Caméra initialisée à:", camera.position);
 
         const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-canvas'), antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        console.log("Renderer initialisé.");
 
         // --- Post-traitement (Glow Effect) ---
-        const renderScene = new RenderPass(scene, camera);
+        const renderPass = new RenderPass(scene, camera);
+        renderPass.clearAlpha = 1; 
+        renderPass.clear = true; 
+
         const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
-        bloomPass.threshold = 0;
-        bloomPass.strength = 0.1; // Intensité du glow général
-        bloomPass.radius = 0;
+        bloomPass.threshold = 0.9; 
+        bloomPass.strength = 0.5; 
+        bloomPass.radius = 0.1;
 
         const outputPass = new OutputPass();
 
         const composer = new EffectComposer(renderer);
-        composer.addPass(renderScene);
+        composer.addPass(renderPass);
         composer.addPass(bloomPass);
         composer.addPass(outputPass);
+        console.log("EffectComposer (Bloom) configuré.");
 
         // --- Contrôles Orbitaux ---
-        const controls = new OrbitControls(camera, renderer.domElement);
+        const controls = new OrbitControls(camera, renderer.domElement); 
         controls.enableDamping = true; 
         controls.dampingFactor = 0.05;
         controls.minDistance = 3;
         controls.maxDistance = 25;
         controls.target.set(0, 1, 0);
+        console.log("OrbitControls configurés.");
 
-        // --- Environnement et Fond ---
-        const cubeTextureLoader = new THREE.CubeTextureLoader(loadingManager);
-        const environmentMap = cubeTextureLoader.load([
-            'https://threejs.org/examples/textures/cube/pisa/px.png', 'https://threejs.org/examples/textures/cube/pisa/nx.png',
-            'https://threejs.org/examples/textures/cube/pisa/py.png', 'https://threejs.org/examples/textures/cube/pisa/ny.png',
-            'https://threejs.org/examples/textures/cube/pisa/pz.png', 'https://threejs.org/examples/textures/cube/pisa/nz.png'
-        ]);
-        scene.background = environmentMap;
-        scene.environment = environmentMap;
+        // --- Environnement et Fond (NightSky.png direct) ---
+        const textureLoader = new THREE.TextureLoader(loadingManager);
+        const imageUrl = 'https://davidbouchard19841984.github.io/TestWEBAR/NightSky.png'; 
+        const noiseTextureUrl1 = 'https://davidbouchard19841984.github.io/TestWEBAR/Noise2.png'; // URL pour la première texture de bruit
+        const noiseTextureUrl2 = 'https://davidbouchard19841984.github.io/TestWEBAR/Noise1.png'; // URL pour la deuxième texture de bruit
 
-        // --- Lumières ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-        
+        // Charger toutes les textures en parallèle
+        Promise.all([
+            new Promise((resolve, reject) => textureLoader.load(imageUrl, (tex) => { 
+                backgroundTexture = tex; 
+                backgroundTexture.mapping = THREE.EquirectangularReflectionMapping;
+                scene.environment = backgroundTexture; 
+                scene.background = backgroundTexture; 
+                console.log("Texture NightSky.png chargée avec succès.");
+                resolve(); 
+            }, undefined, reject)),
+            new Promise((resolve, reject) => textureLoader.load(noiseTextureUrl1, (tex) => { 
+                noiseTexture1 = tex; 
+                noiseTexture1.wrapS = noiseTexture1.wrapT = THREE.RepeatWrapping; 
+                console.log("Noise Texture 1 loaded.");
+                resolve(); 
+            }, undefined, reject)),
+            new Promise((resolve, reject) => textureLoader.load(noiseTextureUrl2, (tex) => { 
+                noiseTexture2 = tex; 
+                noiseTexture2.wrapS = noiseTexture2.wrapT = THREE.RepeatWrapping; 
+                console.log("Noise Texture 2 loaded.");
+                resolve(); 
+            }, undefined, reject))
+        ]).then(() => {
+            console.log("Toutes les textures sont chargées. Initialisation des matériaux.");
+
+            // --- Ajout de la grande sphère texturée avec NightSky.png (état initial) ---
+            const BackgroundSphereGeometry = new THREE.SphereGeometry(500, 64, 64); // Rayon de 500
+            
+            // --- Définition du ShaderMaterial pour le scintillement ---
+            const starVertexShader = `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `;
+
+            const starFragmentShader = `
+                uniform sampler2D uTexture;
+                uniform float uTime;
+                varying vec2 vUv;
+
+                uniform sampler2D uNoiseTexture1; // Texture de bruit pour la distorsion (ex: Perlin noise)
+                uniform float uDistortionSpeed;   // Vitesse de défilement de la distorsion (utilisée pour la vitesse radiale)
+                uniform float uDistortionStrength; // Force de la distorsion
+
+                uniform sampler2D uNoiseTexture2; // Texture de bruit pour le motif de scintillement (ex: Simplex noise)
+                uniform float uTwinkleSpeed;      // Vitesse de défilement du scintillement (utilisée pour la vitesse radiale)
+                uniform float uTwinkleAmplitude;  // Amplitude du scintillement
+
+                void main() {
+                    vec4 texColor = texture2D(uTexture, vUv);
+
+                    // Calcul de la luminosité pour identifier les étoiles
+                    float brightness = dot(texColor.rgb, vec3(0.299, 0.587, 0.114)); 
+                    float brightnessThreshold = 0.2; // Seuls les pixels plus lumineux que ce seuil scintilleront
+
+                    if (brightness > brightnessThreshold) {
+                        // --- Panner Radial pour la première texture de bruit (distorsion) ---
+                        vec2 centeredUv1 = vUv - vec2(0.5); // Centrer les UVs autour de (0,0)
+                        float angle1 = atan(centeredUv1.y, centeredUv1.x); // Calculer l'angle
+                        float radius1 = length(centeredUv1); // Calculer le rayon
+
+                        angle1 += uTime * uDistortionSpeed * 2.0; // Ajouter une rotation basée sur le temps et la vitesse
+
+                        // Reconvertir en coordonnées cartésiennes
+                        vec2 radialDistortionUv = vec2(cos(angle1), sin(angle1)) * radius1 * 2.0; // Multiplier le rayon pour étirer le motif
+                        radialDistortionUv += vec2(0.5); // Décaler de nouveau pour être dans la plage [0,1]
+
+                        float distortion = texture2D(uNoiseTexture1, radialDistortionUv).r; // Lire la valeur de bruit (0.0-1.0)
+
+                        // 2. Appliquer la distorsion aux UVs d'origine pour la deuxième texture
+                        // (distortion - 0.5) centre la distorsion autour de zéro, pour qu'elle déplace les UVs dans les deux directions
+                        vec2 warpedUv = vUv * (distortion - 0.5) * uDistortionStrength;
+
+                        // --- Panner Radial pour la deuxième texture de bruit (scintillement) ---
+                        vec2 centeredUv2 = warpedUv - vec2(0.5); // Centrer les UVs déformées
+                        float angle2 = atan(centeredUv2.y, centeredUv2.x); // Calculer l'angle
+                        float radius2 = length(centeredUv2); // Calculer le rayon
+
+                        angle2 += uTime * uTwinkleSpeed * 3.0; // Ajouter une rotation basée sur le temps et la vitesse
+
+                        // Reconvertir en coordonnées cartésiennes
+                        vec2 radialTwinkleUv = vec2(cos(angle2), sin(angle2)) * radius2 * 3.0; // Multiplier le rayon pour étirer le motif
+                        radialTwinkleUv += vec2(0.5); // Décaler de nouveau pour être dans la plage [0,1]
+                        
+                        float twinkleNoise = texture2D(uNoiseTexture2, radialTwinkleUv).r; // Lire la valeur de bruit pour le scintillement
+
+                        // 4. Utiliser la valeur de bruit pour moduler la luminosité de l'étoile
+                        // smoothstep crée une transition douce entre les valeurs, rendant le scintillement plus organique
+                        // Les seuils (0.1, 0.9) peuvent être ajustés pour contrôler la "netteté" du scintillement
+                        float finalTwinkleFactor = smoothstep(0.1, 0.9, twinkleNoise); 
+                        
+                        // Appliquer l'amplitude : la couleur de l'étoile varie entre sa luminosité de base et (luminosité de base * (1 + amplitude))
+                        texColor.rgb *= (1.0 + finalTwinkleFactor * uTwinkleAmplitude); 
+                    }
+
+                    gl_FragColor = vec4(texColor.rgb, 1.0); // Assure que l'alpha est opaque
+                }
+            `;
+
+            twinkleShaderMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTexture: { value: backgroundTexture }, // Utilise la texture NightSky.png
+                    uTime: { value: 0.0 },
+                    uNoiseTexture1: { value: noiseTexture1 },
+                    uDistortionSpeed: { value: 0.05 },
+                    uDistortionStrength: { value: .3 },
+                    uNoiseTexture2: { value: noiseTexture2 },
+                    uTwinkleSpeed: { value: .1 },
+                    uTwinkleAmplitude: { value: 0.7 }
+                },
+                vertexShader: starVertexShader,
+                fragmentShader: starFragmentShader,
+                side: THREE.BackSide, // Très important pour voir l'intérieur de la sphère
+                depthWrite: false, // Ne pas écrire dans le buffer de profondeur
+                depthTest: false // Ne pas tester la profondeur
+            });
+            BackgroundTexturedSphere = new THREE.Mesh(BackgroundSphereGeometry, twinkleShaderMaterial);
+            BackgroundTexturedSphere.renderOrder = -1; // Rendre en premier (derrière tout)
+            scene.add(BackgroundTexturedSphere);
+            console.log("Grande sphère texturée avec NightSky.png ajoutée à la scène (rayon 500).");
+        }).catch(error => {
+            console.error('Erreur lors du chargement d\'une ou plusieurs textures:', error);
+            loadingText.textContent = "Erreur de chargement des textures. Veuillez rafraîchir la page.";
+            renderPass.clearColor = new THREE.Color(0x000000); 
+            console.log("Fallback: Arrière-plan défini sur noir (textures non chargées).");
+        });
+
         // --- Création du Texte 3D ---
         const fontLoader = new FontLoader(loadingManager);
         fontLoader.load(
             'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/fonts/helvetiker_regular.typeface.json',
             (font) => {
-                const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.5 });
+                const textMaterial = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, roughness: 0.9, metalness: 0.0 });
                 const titleGeometry = new TextGeometry('Mondes Lumineux', {
                     font: font, size: 0.5, height: 0.1, curveSegments: 12, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.01, bevelOffset: 0, bevelSegments: 5
                 });
@@ -177,54 +326,86 @@
                 const titleMesh = new THREE.Mesh(titleGeometry, textMaterial);
                 titleMesh.position.set(0, 0, 0);
                 scene.add(titleMesh);
+                console.log("Texte 3D 'Mondes Lumineux' ajouté à la scène.");
             }
         );
 
-        // --- Sphères Déformables ---
-        // Paramètres du Glow
-        const glowColor1 = 0x00ffff; // Couleur cyan
-        const glowColor2 = 0xff00ff; // Couleur magenta
-        const glowIntensity = 0.1; // Intensité de la lueur
-
+        // --- Matériau Fresnel ---
         const distortionUniforms = { uTime: { value: 0 }, uSpeed: { value: 0.2 }, uStrength: { value: 0.1 } };
         
-        // Fonction pour patcher le shader
-        const patchShader = (shader) => {
-            shader.uniforms.uTime = distortionUniforms.uTime;
-            shader.uniforms.uSpeed = distortionUniforms.uSpeed;
-            shader.uniforms.uStrength = distortionUniforms.uStrength;
-            shader.vertexShader = shader.vertexShader.replace('void main() {', `uniform float uTime; uniform float uSpeed; uniform float uStrength; vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; } vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); } vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; } float snoise(vec3 v) { const vec2 C = vec2(1.0/6.0, 1.0/3.0) ; const vec4 D = vec4(0.0, 0.5, 1.0, 2.0); vec3 i  = floor(v + dot(v, C.yyy) ); vec3 x0 =   v - i + dot(i, C.xxx) ; vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min( g.xyz, l.zxy ); vec3 i2 = max( g.xyz, l.zxy ); vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy; i = mod289(i); vec4 p = permute( permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 )); float n_ = 0.142857142857; vec3  ns = n_ * D.wyz - D.xzx; vec4 j = p - 49.0 * floor(p * ns.z * ns.z); vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_); vec4 x = x_ *ns.x + ns.yyyy; vec4 y = y_ *ns.x + ns.yyyy; vec4 h = 1.0 - abs(x) - abs(y); vec4 b0 = vec4( x.xy, y.xy ); vec4 b1 = vec4( x.zw, y.zw ); vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0)); vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ; vec3 p0 = vec3(a0.xy,h.x); vec3 p1 = vec3(a0.zw,h.y); vec3 p2 = vec3(a1.xy,h.z); vec3 p3 = vec3(a1.zw,h.w); vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3))); p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w; vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m; return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) ); } void main() {`);
-            shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\nfloat distortion = snoise(position + uTime * uSpeed) * uStrength;\ntransformed += normalize(position) * distortion;`);
-        };
+        const vertexShader = `
+            uniform float uTime;
+            uniform float uSpeed;
+            uniform float uStrength;
+            varying vec3 vNormal;
+            varying vec3 vViewDirection;
+            vec3 mod289(vec3 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 mod289(vec4 x) { return x - floor(x * (1.0 / 289.0)) * 289.0; }
+            vec4 permute(vec4 x) { return mod289(((x*34.0)+1.0)*x); }
+            vec4 taylorInvSqrt(vec4 r) { return 1.79284291400159 - 0.85373472095314 * r; }
+            float snoise(vec3 v) { const vec2 C = vec2(1.0/6.0, 1.0/3.0) ; const vec4 D = vec4(0.0, 0.5, 1.0, 2.0); vec3 i  = floor(v + dot(v, C.yyy) ); vec3 x0 =   v - i + dot(i, C.xxx) ; vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g; vec3 i1 = min( g.xyz, l.zxy ); vec3 i2 = max( g.xyz, l.zxy ); vec3 x1 = x0 - i1 + C.xxx; vec3 x2 = x0 - i2 + C.yyy; vec3 x3 = x0 - D.yyy; i = mod289(i); vec4 p = permute( permute( permute( i.z + vec4(0.0, i1.z, i2.z, 1.0 )) + i.y + vec4(0.0, i1.y, i2.y, 1.0 )) + i.x + vec4(0.0, i1.x, i2.x, 1.0 )); float n_ = 0.142857142857; vec3  ns = n_ * D.wyz - D.xzx; vec4 j = p - 49.0 * floor(p * ns.z * ns.z); vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_); vec4 x = x_ *ns.x + ns.yyyy; vec4 y = y_ *ns.x + ns.yyyy; vec4 h = 1.0 - abs(x) - abs(y); vec4 b0 = vec4( x.xy, y.xy ); vec4 b1 = vec4( x.zw, y.zw ); vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0)); vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy ; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww ; vec3 p0 = vec3(a0.xy,h.x); vec3 p1 = vec3(a0.zw,h.y); vec3 p2 = vec3(a1.xy,h.z); vec3 p3 = vec3(a1.zw,h.w); vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2,p2), dot(p3,p3))); p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w; vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0); m = m * m; return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) ); }
+            void main() {
+                vec3 pos = position;
+                float distortion = snoise(pos + uTime * uSpeed) * uStrength;
+                pos += normalize(pos) * distortion;
+                vec4 modelViewPosition = modelViewMatrix * vec4(pos, 1.0);
+                gl_Position = projectionMatrix * modelViewPosition;
+                vNormal = normalize(normalMatrix * normal);
+                vViewDirection = normalize(-modelViewPosition.xyz);
+            }
+        `;
 
-        const glassMaterial1 = new THREE.MeshPhysicalMaterial({
-            metalness: 0, roughness: 0.1, transmission: 1.0, thickness: 1.5, ior: 1.0, transparent: true,
-            emissive: glowColor1, emissiveIntensity: glowIntensity
+        const fragmentShader = `
+            uniform vec3 uGlowColor;
+            uniform float uGlowIntensity;
+            uniform float uFresnelPower;
+            varying vec3 vNormal;
+            varying vec3 vViewDirection;
+            void main() {
+                float fresnel = pow(1.0 - dot(vNormal, vViewDirection), uFresnelPower);
+                vec3 glow = uGlowColor * fresnel * uGlowIntensity;
+                gl_FragColor = vec4(glow, fresnel);
+            }
+        `;
+
+        const fresnelMaterial1 = new THREE.ShaderMaterial({
+            vertexShader, fragmentShader,
+            uniforms: {
+                ...distortionUniforms,
+                uGlowColor: { value: new THREE.Color(0x00ffff) }, // Cyan
+                uGlowIntensity: { value: 5.0 }, // Très haute intensité pour déclencher le bloom
+                uFresnelPower: { value: 4.0 }
+            },
+            transparent: true
         });
-        glassMaterial1.onBeforeCompile = patchShader;
 
-        const glassMaterial2 = new THREE.MeshPhysicalMaterial({
-            metalness: 0, roughness: 0.1, transmission: 1.0, thickness: 1.5, ior: 1.0, transparent: true,
-            emissive: glowColor2, emissiveIntensity: glowIntensity
+        const fresnelMaterial2 = new THREE.ShaderMaterial({
+            vertexShader, fragmentShader,
+            uniforms: {
+                ...distortionUniforms,
+                uGlowColor: { value: new THREE.Color(0xff00ff) }, // Magenta
+                uGlowIntensity: { value: 5.0 }, // Très haute intensité pour déclencher le bloom
+                uFresnelPower: { value: 4.0 }
+            },
+            transparent: true
         });
-        glassMaterial2.onBeforeCompile = patchShader;
 
-        const innerMaterial1 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
-        const innerMaterial2 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
+        const innerMaterial1 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: false, depthWrite: false });
+        const innerMaterial2 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide, transparent: false, depthWrite: false });
 
         const outerGeometry = new THREE.SphereGeometry(1.5, 128, 128);
         const innerGeometry = new THREE.SphereGeometry(1.4, 128, 128);
 
         const group1 = new THREE.Group();
-        const glassSphere1 = new THREE.Mesh(outerGeometry, glassMaterial1);
+        const glassSphere1 = new THREE.Mesh(outerGeometry, fresnelMaterial1);
         group1.add(glassSphere1, new THREE.Mesh(innerGeometry, innerMaterial1));
-        group1.position.set(-3.5, 2, 0);
+        group1.position.set(-2, 2, 0);
         scene.add(group1);
 
         const group2 = new THREE.Group();
-        const glassSphere2 = new THREE.Mesh(outerGeometry, glassMaterial2);
+        const glassSphere2 = new THREE.Mesh(outerGeometry, fresnelMaterial2);
         group2.add(glassSphere2, new THREE.Mesh(innerGeometry, innerMaterial2));
-        group2.position.set(3.5, 2, 0);
+        group2.position.set(2, 2, 0);
         scene.add(group2);
 
         const clickableObjects = [glassSphere1, glassSphere2];
@@ -242,7 +423,7 @@
             if (intersects.length > 0) {
                 const group = intersects[0].object.parent;
                 gsap.timeline()
-                    .to(group.scale, { x: 1.1, y: 1.1, z: 1.1, duration: 0.3, ease: 'back.out(1.7)' })
+                    .to(group.scale, { x: 1.5, y: 1.5, z: 1.5, duration: 0.3, ease: 'back.out(1.7)' })
                     .to(group.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: 'power2.out' });
             }
         }
@@ -277,6 +458,7 @@
             const canvas = renderer.domElement;
             canvas.addEventListener('click', handleInteraction);
             canvas.addEventListener('touchend', handleInteraction);
+            console.log("Expérience démarrée. Écouteurs d'événements ajoutés.");
         }
         startButton.addEventListener('click', startExperience, { once: true });
 
@@ -286,10 +468,10 @@
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
             composer.setSize(window.innerWidth, window.innerHeight);
+            console.log("Fenêtre redimensionnée.");
         });
 
         // --- Boucle d'animation ---
-        const clock = new THREE.Clock();
         function animate() {
             requestAnimationFrame(animate);
             const elapsedTime = clock.getElapsedTime();
@@ -299,6 +481,11 @@
             group1.rotation.y += 0.002;
             group2.position.y = 2 + Math.cos(elapsedTime * 0.4) * 0.6;
             group2.rotation.y -= 0.002;
+
+            // --- Mise à jour du temps pour le shader de la grande sphère ---
+            if (BackgroundTexturedSphere && BackgroundTexturedSphere.material === twinkleShaderMaterial) { 
+                BackgroundTexturedSphere.material.uniforms.uTime.value = elapsedTime;
+            }
 
             controls.update();
             composer.render();
