@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Site 3D - Compatible Mobile</title>
+    <title>Site 3D avec Sphères Lumineuses</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.4/gsap.min.js"></script>
     <style>
         body {
@@ -55,7 +55,7 @@
             text-shadow: 0 0 5px black;
             transition: opacity 1s;
         }
-        #inner-video {
+        .video-source {
             display: none;
         }
     </style>
@@ -66,10 +66,13 @@
         <button id="start-button">Lancer l'expérience</button>
     </div>
 
-    <video id="inner-video" loop muted playsinline crossOrigin="anonymous">
-        <!-- CORRECTION : Retour à une source vidéo fiable -->
-        <source src="https://threejs.org/examples/textures/sintel.mp4" type="video/mp4">
+    <!-- Vidéos sources pour les textures intérieures -->
+    <video id="inner-video-1" class="video-source" loop muted playsinline crossOrigin="anonymous">
+        <source src="https://s.bepro11.com/vr-video-sample.mp4" type="video/mp4">
     </video>
+    <video id="inner-video-2" class="video-source" loop muted playsinline crossOrigin="anonymous">
+        <source src="https://s.bepro11.com/vr-video-sample.mp4" type="video/mp4">
+    </video> 
 
     <canvas id="bg-canvas"></canvas>
     <div class="controls-indicator">Cliquez-glissez pour tourner. Molette pour zoomer.</div>
@@ -88,12 +91,17 @@
         import { FontLoader } from 'three/addons/loaders/FontLoader.js';
         import { TextGeometry } from 'three/addons/geometries/TextGeometry.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
         const overlay = document.getElementById('overlay');
         const loadingText = document.getElementById('loading-text');
         const startButton = document.getElementById('start-button');
         const controlsIndicator = document.querySelector('.controls-indicator');
-        const video = document.getElementById('inner-video');
+        const video1 = document.getElementById('inner-video-1');
+        const video2 = document.getElementById('inner-video-2');
 
         // --- Gestionnaire de Chargement ---
         const loadingManager = new THREE.LoadingManager(
@@ -113,11 +121,26 @@
         // --- Initialisation de base ---
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 0, 8);
+        camera.position.set(0, 2, 8);
 
         const renderer = new THREE.WebGLRenderer({ canvas: document.querySelector('#bg-canvas'), antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+        // --- Post-traitement (Glow Effect) ---
+        const renderScene = new RenderPass(scene, camera);
+        const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+        bloomPass.threshold = 0;
+        bloomPass.strength = 0.1; // Intensité du glow général
+        bloomPass.radius = 0;
+
+        const outputPass = new OutputPass();
+
+        const composer = new EffectComposer(renderer);
+        composer.addPass(renderScene);
+        composer.addPass(bloomPass);
+        composer.addPass(outputPass);
 
         // --- Contrôles Orbitaux ---
         const controls = new OrbitControls(camera, renderer.domElement);
@@ -125,8 +148,7 @@
         controls.dampingFactor = 0.05;
         controls.minDistance = 3;
         controls.maxDistance = 25;
-        controls.maxPolarAngle = Math.PI / 2 + 0.3;
-        controls.minPolarAngle = Math.PI / 2 - 0.5;
+        controls.target.set(0, 1, 0);
 
         // --- Environnement et Fond ---
         const cubeTextureLoader = new THREE.CubeTextureLoader(loadingManager);
@@ -139,36 +161,35 @@
         scene.environment = environmentMap;
 
         // --- Lumières ---
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.2);
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
         scene.add(ambientLight);
-        const pointLight = new THREE.PointLight(0xffffff, 1.5, 100);
-        pointLight.position.set(0, 0, 2); 
-        camera.add(pointLight); 
-        scene.add(camera);
-
+        
         // --- Création du Texte 3D ---
         const fontLoader = new FontLoader(loadingManager);
         fontLoader.load(
             'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/fonts/helvetiker_regular.typeface.json',
             (font) => {
                 const textMaterial = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.2, metalness: 0.5 });
-                const titleGeometry = new TextGeometry('Mondes', {
+                const titleGeometry = new TextGeometry('Mondes Lumineux', {
                     font: font, size: 0.5, height: 0.1, curveSegments: 12, bevelEnabled: true, bevelThickness: 0.02, bevelSize: 0.01, bevelOffset: 0, bevelSegments: 5
                 });
                 titleGeometry.center();
                 const titleMesh = new THREE.Mesh(titleGeometry, textMaterial);
-                titleMesh.position.set(0, 1.5, 0);
+                titleMesh.position.set(0, 0, 0);
                 scene.add(titleMesh);
             }
         );
 
         // --- Sphères Déformables ---
-        const distortionUniforms = { uTime: { value: 0 }, uSpeed: { value: 0.2 }, uStrength: { value: 0.1 } };
-        const glassMaterial = new THREE.MeshPhysicalMaterial({
-            metalness: 0, roughness: 0.1, transmission: 1.0, thickness: 2.0, ior: 1.5, transparent: true
-        });
+        // Paramètres du Glow
+        const glowColor1 = 0x00ffff; // Couleur cyan
+        const glowColor2 = 0xff00ff; // Couleur magenta
+        const glowIntensity = 0.1; // Intensité de la lueur
 
-        glassMaterial.onBeforeCompile = (shader) => {
+        const distortionUniforms = { uTime: { value: 0 }, uSpeed: { value: 0.2 }, uStrength: { value: 0.1 } };
+        
+        // Fonction pour patcher le shader
+        const patchShader = (shader) => {
             shader.uniforms.uTime = distortionUniforms.uTime;
             shader.uniforms.uSpeed = distortionUniforms.uSpeed;
             shader.uniforms.uStrength = distortionUniforms.uStrength;
@@ -176,22 +197,34 @@
             shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>\nfloat distortion = snoise(position + uTime * uSpeed) * uStrength;\ntransformed += normalize(position) * distortion;`);
         };
 
+        const glassMaterial1 = new THREE.MeshPhysicalMaterial({
+            metalness: 0, roughness: 0.1, transmission: 1.0, thickness: 1.5, ior: 1.0, transparent: true,
+            emissive: glowColor1, emissiveIntensity: glowIntensity
+        });
+        glassMaterial1.onBeforeCompile = patchShader;
+
+        const glassMaterial2 = new THREE.MeshPhysicalMaterial({
+            metalness: 0, roughness: 0.1, transmission: 1.0, thickness: 1.5, ior: 1.0, transparent: true,
+            emissive: glowColor2, emissiveIntensity: glowIntensity
+        });
+        glassMaterial2.onBeforeCompile = patchShader;
+
         const innerMaterial1 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
         const innerMaterial2 = new THREE.MeshBasicMaterial({ color: 0x000000, side: THREE.BackSide });
 
-        const outerGeometry = new THREE.SphereGeometry(2, 128, 128);
-        const innerGeometry = new THREE.SphereGeometry(1.5, 128, 128);
+        const outerGeometry = new THREE.SphereGeometry(1.5, 128, 128);
+        const innerGeometry = new THREE.SphereGeometry(1.4, 128, 128);
 
         const group1 = new THREE.Group();
-        const glassSphere1 = new THREE.Mesh(outerGeometry, glassMaterial);
+        const glassSphere1 = new THREE.Mesh(outerGeometry, glassMaterial1);
         group1.add(glassSphere1, new THREE.Mesh(innerGeometry, innerMaterial1));
-        group1.position.set(-3, 4, 0);
+        group1.position.set(-3.5, 2, 0);
         scene.add(group1);
 
         const group2 = new THREE.Group();
-        const glassSphere2 = new THREE.Mesh(outerGeometry, glassMaterial);
+        const glassSphere2 = new THREE.Mesh(outerGeometry, glassMaterial2);
         group2.add(glassSphere2, new THREE.Mesh(innerGeometry, innerMaterial2));
-        group2.position.set(3, 4, 0);
+        group2.position.set(3.5, 2, 0);
         scene.add(group2);
 
         const clickableObjects = [glassSphere1, glassSphere2];
@@ -200,14 +233,8 @@
 
         function handleInteraction(event) {
             let x, y;
-            if (event.type === 'touchend') {
-                x = event.changedTouches[0].clientX;
-                y = event.changedTouches[0].clientY;
-            } else {
-                x = event.clientX;
-                y = event.clientY;
-            }
-
+            if (event.type === 'touchend') { x = event.changedTouches[0].clientX; y = event.changedTouches[0].clientY; } 
+            else { x = event.clientX; y = event.clientY; }
             mouse.x = (x / window.innerWidth) * 2 - 1;
             mouse.y = - (y / window.innerHeight) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
@@ -215,35 +242,34 @@
             if (intersects.length > 0) {
                 const group = intersects[0].object.parent;
                 gsap.timeline()
-                    .to(group.scale, { x: 1.2, y: 1.2, z: 1.2, duration: 0.3, ease: 'back.out(1.7)' })
+                    .to(group.scale, { x: 1.1, y: 1.1, z: 1.1, duration: 0.3, ease: 'back.out(1.7)' })
                     .to(group.scale, { x: 1, y: 1, z: 1, duration: 0.5, ease: 'power2.out' });
             }
         }
         
         // --- Démarrage de l'expérience ---
         function startExperience() {
-            const playPromise = video.play();
-
-            gsap.to(overlay, { opacity: 0, duration: 1, onComplete: () => {
-                overlay.style.display = 'none';
-            }});
+            const playPromise1 = video1.play();
+            const playPromise2 = video2.play();
+            gsap.to(overlay, { opacity: 0, duration: 1, onComplete: () => { overlay.style.display = 'none'; }});
             gsap.to(controlsIndicator, { opacity: 0.7, duration: 1, delay: 0.5 });
             
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    console.log("SUCCÈS : La vidéo a démarré ! Application de la texture.");
-                    const videoTexture = new THREE.VideoTexture(video);
-                    
+            if (playPromise1 !== undefined) {
+                playPromise1.then(() => {
+                    const videoTexture1 = new THREE.VideoTexture(video1);
                     innerMaterial1.color.set(0xffffff); 
-                    innerMaterial1.map = videoTexture;
+                    innerMaterial1.map = videoTexture1;
                     innerMaterial1.needsUpdate = true;
-                    
+                }).catch(e => console.error("ERREUR : Lecture de la vidéo 1 bloquée.", e));
+            }
+
+            if (playPromise2 !== undefined) {
+                playPromise2.then(() => {
+                    const videoTexture2 = new THREE.VideoTexture(video2);
                     innerMaterial2.color.set(0xffffff);
-                    innerMaterial2.map = videoTexture;
+                    innerMaterial2.map = videoTexture2;
                     innerMaterial2.needsUpdate = true;
-                }).catch(e => {
-                    console.error("ERREUR : La lecture de la vidéo a été bloquée par le navigateur.", e);
-                });
+                }).catch(e => console.error("ERREUR : Lecture de la vidéo 2 bloquée.", e));
             }
             
             animate();
@@ -259,6 +285,7 @@
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
         });
 
         // --- Boucle d'animation ---
@@ -266,17 +293,15 @@
         function animate() {
             requestAnimationFrame(animate);
             const elapsedTime = clock.getElapsedTime();
-
             distortionUniforms.uTime.value = elapsedTime;
 
-            // Animation de flottement relative à la nouvelle position
-            group1.position.y = 4 + Math.sin(elapsedTime * 0.5) * 0.5;
+            group1.position.y = 2 + Math.sin(elapsedTime * 0.5) * 0.5;
             group1.rotation.y += 0.002;
-            group2.position.y = 4 + Math.cos(elapsedTime * 0.4) * 0.6;
+            group2.position.y = 2 + Math.cos(elapsedTime * 0.4) * 0.6;
             group2.rotation.y -= 0.002;
 
             controls.update();
-            renderer.render(scene, camera);
+            composer.render();
         }
     </script>
 </body>
